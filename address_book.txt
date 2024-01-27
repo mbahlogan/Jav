@@ -1,1 +1,6 @@
 Treasure, Douala Cmr
+logan, Buea
+loic, Bamenda
+Fred, Bertoua
+null, null
+null, 
