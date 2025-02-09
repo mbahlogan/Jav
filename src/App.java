@@ -5,42 +5,42 @@ import javax.swing.*;
 
 public class App extends JFrame {
     private static final String FILE_PATH = "address_book.txt";
-    private JTextField nameField;
-    private JTextField addressField;
-    private JTextArea resultArea;
+    private final AddressBook addressBook;
+    private final JTextField nameField;
+    private final JTextField addressField;
+    private final JTextArea resultArea;
 
     public App() {
+        this.addressBook = new AddressBook(FILE_PATH);
+        
         setTitle("Address Book");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        JPanel formPanel = createFormPanel();
-        JPanel buttonPanel = createButtonPanel();
+        nameField = new JTextField(20);
+        addressField = new JTextField(20);
         resultArea = new JTextArea(10, 30);
-        JScrollPane scrollPane = new JScrollPane(resultArea);
-
-        add(formPanel, BorderLayout.NORTH);
-        add(buttonPanel, BorderLayout.CENTER);
-        add(scrollPane, BorderLayout.SOUTH);
-
+        
+        setupUI();
+        
         pack();
         setLocationRelativeTo(null);
         setVisible(true);
     }
 
+    private void setupUI() {
+        add(createFormPanel(), BorderLayout.NORTH);
+        add(createButtonPanel(), BorderLayout.CENTER);
+        add(new JScrollPane(resultArea), BorderLayout.SOUTH);
+    }
+
     private JPanel createFormPanel() {
-        JPanel panel = new JPanel(new GridLayout(2, 2));
+        JPanel panel = new JPanel(new GridLayout(2, 2, 5, 5));
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        JLabel nameLabel = new JLabel("Name:");
-        JLabel addressLabel = new JLabel("Address:");
-
-        nameField = new JTextField(20);
-        addressField = new JTextField(20);
-
-        panel.add(nameLabel);
+        panel.add(new JLabel("Name:"));
         panel.add(nameField);
-        panel.add(addressLabel);
+        panel.add(new JLabel("Address:"));
         panel.add(addressField);
 
         return panel;
@@ -50,37 +50,13 @@ public class App extends JFrame {
         JPanel panel = new JPanel(new FlowLayout());
 
         JButton submitButton = new JButton("Submit");
-        submitButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                String name = nameField.getText().trim();
-                String address = addressField.getText().trim();
-
-                if (!name.isEmpty() && !address.isEmpty()) {
-                    String contact = name + ", " + address + "\n";
-                    appendContactToFile(contact);
-                    clearForm();
-                    JOptionPane.showMessageDialog(App.this, "Contact added successfully!");
-                } else {
-                    JOptionPane.showMessageDialog(App.this, "Please enter both name and address.");
-                }
-            }
-        });
+        submitButton.addActionListener(e -> submitContact());
 
         JButton viewButton = new JButton("View Contacts");
-        viewButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                viewContacts();
-            }
-        });
+        viewButton.addActionListener(e -> viewContacts());
 
         JButton resetButton = new JButton("Reset Contacts");
-        resetButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                resetContacts();
-                resultArea.setText("");
-                JOptionPane.showMessageDialog(App.this, "Contacts reset successfully!");
-            }
-        });
+        resetButton.addActionListener(e -> resetContacts());
 
         panel.add(submitButton);
         panel.add(viewButton);
@@ -89,32 +65,38 @@ public class App extends JFrame {
         return panel;
     }
 
-    private void appendContactToFile(String contact) {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_PATH, true))) {
-            writer.write(contact);
+    private void submitContact() {
+        String name = nameField.getText().trim();
+        String address = addressField.getText().trim();
+
+        if (name.isEmpty() || address.isEmpty()) {
+            showError("Please enter both name and address.");
+            return;
+        }
+
+        try {
+            addressBook.addContact(new Contact(name, address));
+            clearForm();
+            showMessage("Contact added successfully!");
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(App.this, "Error adding contact: " + e.getMessage());
+            showError("Error adding contact: " + e.getMessage());
         }
     }
 
     private void viewContacts() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(FILE_PATH))) {
-            StringBuilder contacts = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                contacts.append(line).append("\n");
-            }
-            resultArea.setText(contacts.toString());
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(App.this, "Error viewing contacts: " + e.getMessage());
-        }
+        StringBuilder contacts = new StringBuilder();
+        addressBook.getContacts().forEach(contact -> 
+            contacts.append(contact.toString()).append("\n"));
+        resultArea.setText(contacts.toString());
     }
 
     private void resetContacts() {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_PATH))) {
-            writer.write("");
+        try {
+            addressBook.resetContacts();
+            resultArea.setText("");
+            showMessage("Contacts reset successfully!");
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(App.this, "Error resetting contacts: " + e.getMessage());
+            showError("Error resetting contacts: " + e.getMessage());
         }
     }
 
@@ -124,11 +106,15 @@ public class App extends JFrame {
         nameField.requestFocus();
     }
 
+    private void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    private void showMessage(String message) {
+        JOptionPane.showMessageDialog(this, message, "Success", JOptionPane.INFORMATION_MESSAGE);
+    }
+
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                new App();
-            }
-        });
+        SwingUtilities.invokeLater(App::new);
     }
 }
